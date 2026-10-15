@@ -1,0 +1,42 @@
+# 20260420 rerun an old study to demo the ampseq pipeline - note, HPC paths and identifying data were later obscured before postig script on github
+# downloaded fastq files to ../data_orig and renamed them extensively into ../data as follows
+for i in ../data_orig/*.fastq.gz;
+  do echo $i;
+  j=$(echo $i | perl -ne 'chomp; $in = $_; s/\/data_orig\//\/data\//; s/\/807-/\//; s/-p..._S\d+_L001_/_/; s/_001.fastq/.fastq/; print "cp -a $in $_"; `cp -a $in $_`');
+  echo $j;
+done | less
+
+# create metadata
+python3 ~/cgebm/cgebm_pipelines/fastq_dir_to_samplesheet.py -st reverse -r1 _R1.fastq.gz -r2 _R2.fastq.gz ../data metadata.csv
+# added metadata in windows
+
+# set analysis config; set Group (Control/Alzheimers/AlzCB) as main variable, no var2. Could make Home as var2, but one home has only one individual, and really, individual Volunteer is probably most correct
+vi analysis.sh
+
+# run analysis
+~/cgebm/cgebm_pipelines_test/mca_ppln.sh analysis.sh 
+#VAR1: Group:Control,Alzheimers,AlzCB
+#OUT_FULL_PATH=~/sharedscratch/CGEBMPnnn_rerun
+#META_FULL_PATH=~/sharedscratch/CGEBMPnnnA_rerun/scripts/metadata2.csv max_idx=69
+#ADAPTER_R1=TCGTCGGCAGCGTCAGATGTGTATAAGAGACAG
+#ADAPTER_R2=GTCTCGTGGGCTCGGAGATGTGTATAAGAGACAG
+#PRIMER_R1=AGMGTTYGATYMTGGCTCAG
+#PRIMER_R2=GCTGCCTCCCGTAGGAGT
+#R1_ADAP_PRIM_5P=TCGTCGGCAGCGTCAGATGTGTATAAGAGACAGAGMGTTYGATYMTGGCTCAG
+#R2_ADAP_PRIM_5P=GTCTCGTGGGCTCGGAGATGTGTATAAGAGACAGGCTGCCTCCCGTAGGAGT
+#R1_ADAP_PRIM_3P=ACTCCTACGGGAGGCAGCCTGTCTCTTATACACATCTCCGAGCCCACGAGAC
+#R2_ADAP_PRIM_3P=CTGAGCCAKRATCRAACKCTCTGTCTCTTATACACATCTGACGCTGCCGACGA
+#sbatch --parsable --array=1-70%20  ~/cgebm/cgebm_pipelines_test/mca_pipeline/scripts/fqc_trim_fqc.sh  ~/sharedscratch/CGEBMPnnnA_rerun/scripts/metadata2.csv ~/sharedscratch/CGEBMPnnnA_rerun/results/qc  ~/sharedscratch/CGEBMPnnnA_rerun/data/trimmed  "--trim-n" "TCGTCGGCAGCGTCAGATGTGTATAAGAGACAGAGMGTTYGATYMTGGCTCAG"  "ACTCCTACGGGAGGCAGCCTGTCTCTTATACACATCTCCGAGCCCACGAGAC" "GTCTCGTGGGCTCGGAGATGTGTATAAGAGACAGGCTGCCTCCCGTAGGAGT" "CTGAGCCAKRATCRAACKCTCTGTCTCTTATACACATCTGACGCTGCCGACGA" "-1" "-1"
+#FQC_TRIM_FQC_PID=3219965
+#num_samples=70
+#MULTIQC_PID=3219966)
+#trim statement: Before initial amplicon analysis, _cutadapt_ (M Martin, EMBnet J v17 2011 [DOI](https://doi.org/10.14806/ej.17.1.200)) was used to trim reads. Trimmed sequences included Illumina adapters, primers (read1: 5&apos; AGMGTTYGATYMTGGCTCAG 3&apos; and read2: 5&apos; GCTGCCTCCCGTAGGAGT 3&apos;) and any Ns at either end of both reads.<br><br>
+#sbatch --dependency=afterok:3219966 --parsable  --partition=uoa-compute-priority  --cpus-per-task=6 --mem=102368  ~/cgebm/cgebm_pipelines_test/mca_pipeline/scripts/dada2_analysis.sh  ~/sharedscratch/CGEBMPnnnA_rerun/results/dada2/dada2_analysis.html  "Louie Van De Lagemaat (xxxx@xxxx.ac.uk)" "6" "Before initial amplicon analysis, _cutadapt_ (M Martin, EMBnet J v17 2011 [DOI](https://doi.org/10.14806/ej.17.1.200)) was used to trim reads. Trimmed sequences included Illumina adapters, primers (read1: 5&apos; AGMGTTYGATYMTGGCTCAG 3&apos; and read2: 5&apos; GCTGCCTCCCGTAGGAGT 3&apos;) and any Ns at either end of both reads.<br><br>"  "~/sharedscratch/CGEBMPnnnA_rerun/scripts/metadata2.csv" "trimmed"  "200" "225"  "2" "2"  "2" "2"  "0" "600"  "" "~/cgebm/silva_db/silva_nr_v138_train_set.fa.gz" "~/cgebm/silva_db/silva_species_assignment_v138.fa.gz" "Kingdom,Phylum,Class,Order,Family,Genus,Species"  "~/cgebm/cgebm_pipelines_test/mca_pipeline/scripts"
+#AMPLICON_PID=3219967
+#sbatch --dependency=afterok:3219967 --parsable  --partition=uoa-compute-priority  --mem=16G  ~/cgebm/cgebm_pipelines_test/mca_pipeline/scripts/diversity_diffabund.sh  ~/sharedscratch/CGEBMPnnnA_rerun/results/diversity_diffabund_demo/diversity_diffabund.html  "Louie Van De Lagemaat (xxxx@xxxx.ac.uk)" "1" "_demo"  "~/sharedscratch/CGEBMPnnnA_rerun/scripts/metadata2.csv" "Group:Control,Alzheimers,AlzCB" ":" "Volunteer" "Volunteer"  "povestrainmix" "20" "0.5"  "0.25" "500" "20"  "0.25" "Kingdom_IS_Bacteria,Archaea;Phylum_NOT_Cyanobacteria/Chloroplast;Class_NOT_Chloroplast;Family_NOT_Mitochondria" "Kingdom,Phylum,Class,Order,Family,Genus,Species"  "Observed,Shannon,InvSimpson" "false" "true"  "~/cgebm/cgebm_pipelines_test/mca_pipeline/scripts"
+#DIV_DA_PID=3219968
+
+# process accounting
+sacct --parsable2 -j 3219965,3219966,3219967,3219968 --format=JobID,jobname,state,elapsed,ncpus,cputime | egrep -v "[0-9].(batch|extern)" | less # add cputime in spreadsheet
+
+
